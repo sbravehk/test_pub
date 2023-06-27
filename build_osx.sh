@@ -8,7 +8,7 @@
 BUILD_TYPE="Release"
 
 # Handle options
-if [ $# > 0 ]
+if [ $# -gt 0 ]
 then
     # Clean up
     if [ "$1" = "clean" ]

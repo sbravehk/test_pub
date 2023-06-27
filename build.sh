@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -ex
+
 # BMF compilation script
 #
 # To build for x86 (default):
@@ -27,9 +29,14 @@ BUILD_TYPE="Release"
 # dist folder). The other folders are catered for SCM installation method.
 
 COVERAGE_OPTION=0
+BREAKPAD_ENABLE=OFF
+if [ "$(uname)" == "Linux" ] && [ "$(uname -m)" == "x86_64" ]
+then
+    BREAKPAD_ENABLE=ON
+fi
 
 # Handle options
-if [ $# > 0 ]
+if [ $# -gt 0 ]
 then
     # Clean up
     if [ "$1" = "clean" ]
@@ -50,12 +57,6 @@ then
         BUILD_TYPE="Debug"
         COVERAGE_OPTION=1
     fi
-
-    # Use BMF 3rd_party/FFMPEG
-    if [ "$1" = "bmf_ffmpeg" ]
-    then
-        export USE_BMF_FFMPEG=1
-    fi
 fi
 
 mkdir -p output
@@ -63,15 +64,7 @@ mkdir -p output
 # Generate BMF version
 source ./version.sh
 
-# Extract FFMPEG from submodule
-if [ ! -d "3rd_party/ffmpeg_bin/linux/" ]
-then
-    git config --global http.sslVerify false
-    git submodule init "3rd_party/ffmpeg_bin"
-    git submodule update
-fi
-
-if [ "$USE_BMF_FFMPEG" = "1" ] && [ ! -d "3rd_party/ffmpeg_bin/linux/build" ]
+if [ ! -d "3rd_party/json" ]
 then
     echo "Extracting 3rd_party"
     cd 3rd_party/
@@ -87,18 +80,11 @@ then
     cd -
 fi
 
-if [ "$USE_BMF_FFMPEG" = "1" ]
+if [ "${BREAKPAD_ENABLE}" == "ON" ] && [ "${GITHUB_ACTIONS}" == "true" ]
 then
-    echo "Using ffmpeg lib"
-else
-    echo "Without ffmpeg"
+    # the docker image of we using in github action is too old to compile prebuilt breakpad, need to rebuild from source
+    ./scripts/build_breakpad.sh
 fi
-
-cp -a $PWD/3rd_party/ffmpeg_bin/linux/build/lib/. /usr/local/lib/
-cp -a $PWD/3rd_party/ffmpeg_bin/linux/build/include/. /usr/local/include/
-
-# Generate BMF version
-source ./version.sh
 
 # Handle SCM compilation for x86 multiple Python versions
 if [ "$SCRIPT_EXEC_MODE" == "x86" ]
@@ -119,19 +105,14 @@ then
         cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
             -DBMF_PYENV="${python_versions[$i]}" \
             -DBMF_BUILD_VERSION=${BMF_BUILD_VERSION} \
-	    -DBMF_ENABLE_BREAKPAD=ON \
+	    -DBMF_ENABLE_BREAKPAD=${BREAKPAD_ENABLE} \
             -DBMF_BUILD_COMMIT=${BMF_BUILD_COMMIT} ..
-        make -j8
+        make -j$(nproc)
 
         # Transfer to output directory to package
         mkdir output/bmf/3rd_party
 
         # Store the pre-compiled dependencies
-        cp -r ../3rd_party/ffmpeg_bin/linux/build/lib/. output/bmf/3rd_party
-        cp /usr/local/boost_1_68_0/stage/lib/libboost_python"${python_names[$i]}".so.1.68.0 output/bmf/3rd_party
-        cp /usr/local/boost_1_68_0/stage/lib/libboost_numpy"${python_names[$i]}".so.1.68.0 output/bmf/3rd_party
-        cp /usr/local/boost_1_68_0/stage/lib/libboost_system.so.1.68.0 output/bmf/3rd_party
-        cp /usr/local/boost_1_68_0/stage/lib/libboost_filesystem.so.1.68.0 output/bmf/3rd_party
         cp /usr/lib/x86_64-linux-gnu/libgflags.so.2.2 output/bmf/3rd_party
         cp /usr/lib/x86_64-linux-gnu/libglog.so.0 output/bmf/3rd_party
         cp /usr/lib/x86_64-linux-gnu/libunwind.so.8 output/bmf/3rd_party
@@ -150,7 +131,6 @@ then
         cp -r output/bmf/lib/. output/bmf/3rd_party
         cp /usr/local/lib/libpython"${python_versions[$i]}"* output/bmf/3rd_party
         mv output/bmf/3rd_party ../bmf/lib
-        cp -r ../3rd_party/ffmpeg_bin/linux/build/bin/. output/bmf/bin/
         cp -r output/bmf/bin ../bmf/bin
         cp -r /usr/local/boost_1_68_0/boost output/bmf/include/
         cp -r /usr/include/glog output/bmf/include/
@@ -201,12 +181,12 @@ then
 else
     mkdir -p build && cd build
     cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-        -DBMF_PYENV=3.7 \
+        -DBMF_PYENV=$(python3 -c "import sys; print('{}.{}'.format(sys.version_info.major, sys.version_info.minor))") \
         -DCOVERAGE=${COVERAGE_OPTION} \
         -DBMF_BUILD_VERSION=${BMF_BUILD_VERSION} \
-        -DBMF_ENABLE_BREAKPAD=ON \
+        -DBMF_ENABLE_BREAKPAD=${BREAKPAD_ENABLE} \
         -DBMF_BUILD_COMMIT=${BMF_BUILD_COMMIT} ..
-    make -j8
+    make -j$(nproc)
 
     # Transfer to output directory
     cd ..
@@ -216,19 +196,12 @@ else
     rm -rf output/example/files
 
     # Breakpad
-    python3 create_symbols.py -b 3rd_party/breakpad/bin -s output/bmf/lib -d ./symbols
-    if [ -d "symbols" ]
+    if [ "${BREAKPAD_ENABLE}" == "ON" ]
     then
-        cp -r symbols output/
+        python3 create_symbols.py -b 3rd_party/breakpad/bin -s output/bmf/lib -d ./symbols
+        if [ -d "symbols" ]
+        then
+            cp -r symbols output/
+        fi
     fi
-fi
-
-if [ "$USE_BMF_FFMPEG" = "1" ]
-then
-    # Cater for CI and SCM install
-    mkdir -p output/3rd_party/lib output/3rd_party/bin output/3rd_party/include
-    cp -a -r 3rd_party/ffmpeg_bin/linux/build/lib/. output/3rd_party/lib
-    cp -a -r 3rd_party/ffmpeg_bin/linux/build/bin/. output/3rd_party/bin
-    cp -a -r 3rd_party/ffmpeg_bin/linux/build/include/. output/3rd_party/include
-
 fi

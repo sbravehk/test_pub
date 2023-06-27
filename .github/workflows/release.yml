@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  release:
+    types:
+      - created
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build_and_release:
+    name: build binaries with ${{ matrix.os }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-20.04
+            arch: x86_64
+          - os: ubuntu-20.04
+            arch: i686
+          - os: ubuntu-20.04
+            arch: aarch64
+          - os: ubuntu-20.04
+            arch: s390x
+          - os: ubuntu-20.04
+            arch: ppc64le
+          - os: macos-12
+            arch: x86_64
+          - os: macos-12
+            arch: arm64
+          - os: macos-12
+            arch: universal2
+          - os: windows-2019
+            arch: AMD64
+          - os: windows-2019
+            arch: x86
+          - os: windows-2019
+            arch: ARM64
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+
+    - name: Set up QEMU
+      if: runner.os == 'Linux'
+      uses: docker/setup-qemu-action@v2
+
+    - name: Build linux release package in Docker
+      if: runner.os == 'Linux'
+      run: |
+        tmp_file=$(mktemp -p .)
+        echo "FROM smartbrave/manylinux2014_${{ matrix.arch }}_shared_python" >>${tmp_file}
+        echo "RUN yum -y install binutils-devel openssl-devel" >>${tmp_file}
+        echo "WORKDIR /root" >>${tmp_file}
+        echo "ENV PATH=\${PATH}:/opt/python/cp310-cp310/bin" >>${tmp_file}
+        echo "ENV GITHUB_ACTIONS=${GITHUB_ACTIONS}" >>${tmp_file}
+        docker build -t bmf_build:tmp -f ${tmp_file} .
+        rm -rf ${tmp_file}
+        docker run --rm -v $(pwd):/root/bmf -w /root/bmf bmf_build:tmp bash -c "./scripts/build_ffmpeg.sh cpu && git config --global --add safe.directory /root/bmf && ./build.sh"
+        docker rmi bmf_build:tmp
+        ls output/*
+        tar czf bmf-bin-${{ runner.os }}-${{ matrix.arch }}.tar.gz --directory=. output
+
+    - uses: actions/upload-artifact@v3
+      with:
+        path: bmf-bin-${{ runner.os }}-${{ matrix.arch }}.tar.gz 
+
+    - name: Upload Release Asset
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: bmf-bin-${{ runner.os }}-${{ matrix.arch }}.tar.gz
