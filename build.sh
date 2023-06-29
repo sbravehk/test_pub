@@ -34,6 +34,7 @@ if [ "$(uname)" == "Linux" ] && [ "$(uname -m)" == "x86_64" ]
 then
     BREAKPAD_ENABLE=ON
 fi
+CUDA_ENABLE=ON
 
 # Handle options
 if [ $# -gt 0 ]
@@ -56,6 +57,15 @@ then
     then
         BUILD_TYPE="Debug"
         COVERAGE_OPTION=1
+    fi
+
+    if [ "$1" = "disable" ]
+    then
+        shift
+	if [ "$1" = "cuda" ]
+	then
+            CUDA_ENABLE=OFF
+        fi
     fi
 fi
 
@@ -185,6 +195,7 @@ else
         -DCOVERAGE=${COVERAGE_OPTION} \
         -DBMF_BUILD_VERSION=${BMF_BUILD_VERSION} \
         -DBMF_ENABLE_BREAKPAD=${BREAKPAD_ENABLE} \
+	_DBMF_ENABLE_CUDA=${CUDA_ENABLE} \
         -DBMF_BUILD_COMMIT=${BMF_BUILD_COMMIT} ..
     make -j$(nproc)
 

@@ -118,17 +118,6 @@ if(BMF_ENABLE_TEST)
         COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:copy_module> ${BMF_ASSEMBLE_ROOT}/example/c_module)
 endif()
 
-function(PYTHON_WRAPPER)
-    add_custom_command(TARGET bmf_assem
-        POST_BUILD
-        COMMAND
-        ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/cmd/python_wrapper/wrapper.py ${BMF_ASSEMBLE_ROOT}/bmf/bin/python_wrapper/${ARGV0})
-endfunction()
-
-file(MAKE_DIRECTORY ${BMF_ASSEMBLE_ROOT}/bmf/bin/python_wrapper)
-PYTHON_WRAPPER(run_bmf_graph)
-PYTHON_WRAPPER(trace_format_log)
-
 # json
 add_custom_command(TARGET bmf_assem
     POST_BUILD

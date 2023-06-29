@@ -1,4 +1,4 @@
-name: Release
+name: Release binaries to github packages
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build_and_release:
-    name: build binaries with ${{ matrix.os }}-${{ matrix.arch }}
+    name: build binaries with ${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.device }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -22,26 +22,40 @@ jobs:
         include:
           - os: ubuntu-20.04
             arch: x86_64
+            device: cpu
+          - os: ubuntu-20.04
+            arch: x86_64
+            device: gpu
           - os: ubuntu-20.04
             arch: i686
+            device: cpu
           - os: ubuntu-20.04
             arch: aarch64
+            device: cpu
           - os: ubuntu-20.04
             arch: s390x
+            device: cpu
           - os: ubuntu-20.04
             arch: ppc64le
+            device: cpu
           - os: macos-12
             arch: x86_64
+            device: cpu
           - os: macos-12
             arch: arm64
+            device: cpu
           - os: macos-12
             arch: universal2
+            device: cpu
           - os: windows-2019
             arch: AMD64
+            device: cpu
           - os: windows-2019
             arch: x86
+            device: cpu
           - os: windows-2019
             arch: ARM64
+            device: cpu
     steps:
     - name: Check out code
       uses: actions/checkout@v2
@@ -49,6 +63,29 @@ jobs:
     - name: Set up QEMU
       if: runner.os == 'Linux'
       uses: docker/setup-qemu-action@v2
+
+    - name: Set binary name for linux
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt update
+        sudo apt install -y jq
+        echo BINARY_NAME=bmf-bin-$(echo "${{ runner.os }}" | tr 'A-Z' 'a-z')-${{ matrix.arch }}$(echo '{"gpu": "-gpu", "cpu": ""}' | jq .${{ matrix.device }} | sed 's/"//g') >> $GITHUB_ENV
+
+    - name: Set binary name for macos/windows
+      if: runner.os != 'Linux'
+      run: |
+        echo BINARY_NAME=bmf-bin-${{ runner.os }}-${{ matrix.arch }} >> $GITHUB_ENV
+
+        #- name: Set gcc-8 for x86_64 and gpu stage
+        #  id: set_env
+        #  run: |
+        #    from os import environ, sched_getaffinity
+
+        #    # using gcc-8 for x86_64 and gpu stage
+        #    if "${{ matrix.device }}" == "gpu" and "${{ matrix.arch }}" == "x86_64":
+        #        with open(output_file, "a", encoding="utf-8") as output_stream:
+        #            output_stream.write(f"cmake_args=\"-DCMAKE_C_COMPILER=/opt/rh/devtoolset-8/root/usr/bin/gcc -DCMAKE_CXX_COMPILER=/opt/rh/devtoolset-8/root/usr/bin/g++\"\n")
+        #  shell: python
 
     - name: Build linux release package in Docker
       if: runner.os == 'Linux'
@@ -59,19 +96,20 @@ jobs:
         echo "WORKDIR /root" >>${tmp_file}
         echo "ENV PATH=\${PATH}:/opt/python/cp310-cp310/bin" >>${tmp_file}
         echo "ENV GITHUB_ACTIONS=${GITHUB_ACTIONS}" >>${tmp_file}
+        if [ ${{ matrix.device }} == "gpu" ] && [ ${{ matrix.arch }} == "x86_64" ]; then echo "RUN mv /opt/rh/devtoolset-10{,.bak} && yum -y install devtoolset-8-{gcc,gcc-c++}" >>${tmp_file} && echo "ENV PATH=/opt/rh/devtoolset-8/root/usr/bin:\${PATH}" >>${tmp_file}; fi
         docker build -t bmf_build:tmp -f ${tmp_file} .
         rm -rf ${tmp_file}
-        docker run --rm -v $(pwd):/root/bmf -w /root/bmf bmf_build:tmp bash -c "./scripts/build_ffmpeg.sh cpu && git config --global --add safe.directory /root/bmf && ./build.sh"
+        docker run --rm -v $(pwd):/root/bmf -w /root/bmf bmf_build:tmp bash -c "./scripts/build_ffmpeg.sh ${{ matrix.device }} && git config --global --add safe.directory /root/bmf && ./build.sh"
         docker rmi bmf_build:tmp
         ls output/*
-        tar czf bmf-bin-${{ runner.os }}-${{ matrix.arch }}.tar.gz --directory=. output
+        tar czf ${{ env.BINARY_NAME }}.tar.gz --directory=. output
 
     - uses: actions/upload-artifact@v3
       with:
-        path: bmf-bin-${{ runner.os }}-${{ matrix.arch }}.tar.gz 
+        path: ${{ env.BINARY_NAME }}.tar.gz
 
     - name: Upload Release Asset
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: bmf-bin-${{ runner.os }}-${{ matrix.arch }}.tar.gz
+        files: ${{ env.BINARY_NAME }}.tar.gz

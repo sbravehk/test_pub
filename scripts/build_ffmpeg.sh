@@ -18,7 +18,7 @@ function install_dependencies_linux() {
     if [[ ${NAME} =~ "CentOS" ]]
     then
         yum install -y autoconf automake bzip2 bzip2-devel cmake gcc gcc-c++ git libtool make pkgconfig zlib-devel wget
-    elif [[ ${NAME} == "Ubuntu" ]]
+    elif [[ ${NAME} == "Ubuntu" ]] || [[ ${NAME} =~ "Debian" ]]
     then
         apt install -y autoconf automake bzip2 cmake gcc g++ git libtool make pkg-config wget curl
     fi
@@ -159,7 +159,7 @@ function install_cuda_linux() {
         yum -y install nvidia-driver-latest-dkms cuda
         yum -y install cuda-drivers
         export PATH=${PATH}:/usr/local/cuda/bin
-    elif [[ ${NAME} == "Ubuntu" ]]
+    elif [[ ${NAME} == "Ubuntu" ]] || [[ ${NAME} =~ "Debian" ]]
     then
         wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin
 mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600

@@ -23,11 +23,11 @@ PLAT_TO_CMAKE = {
 }
 
 package_name="BabitMF"
-package_version="0.0.2"
+package_version="0.0.4"
 build_temp=Path("build") / "temp"
 
 if "DEVICE" in os.environ and os.environ["DEVICE"] == "gpu":
-    package_name="BabitMF_GPU"
+    package_name="BabitMF-GPU"
 
 
 # A CMakeExtension needs a sourcedir instead of a file list.
@@ -171,12 +171,13 @@ class CMakeBuild(build_ext):
         for lib in glob.glob(f"{src_dir}{os.sep}_*"):
             shutil.copy(lib, extensions_dst_dir)
         for file_glob in ["go_loader", "py_loader", "builtin_modules"]:
-            for lib in glob.glob(f"{src_dir}{os.sep}*{file_glob}*.so"):
+            for lib in glob.glob(f"{src_dir}{os.sep}*{file_glob}*"):
                 shutil.copy(lib, depends_dst_dir)
         for file in ["BUILTIN_CONFIG.json"]:
            shutil.copyfile(os.path.join(src_dir, file), os.path.join(depends_dst_dir, file))
 
         shutil.copytree(os.path.join(build_temp, "output", "bmf", "bin"), os.path.join(extdir, "bmf", "bin"))
+        shutil.copytree(os.path.join(build_temp, "output", "bmf", "include"), os.path.join(extdir, "bmf", "include"))
 
 
 
@@ -189,8 +190,7 @@ setup(
     author_email="",
     python_requires='>= 3.6',
     description="Babit Multimedia Framework",
-    long_description="Babit Multimedia Framework long description",
-    #long_description=open('README.txt').read(),
+    long_description=open('README.md').read(),
     url="https://github.com/BabitMF/bmf",
     install_requires=[
         "numpy >= 1.19.5"
@@ -200,6 +200,7 @@ setup(
     packages=[
         'bmf',
         'bmf.builder',
+        'bmf.cmd.python_wrapper',
         'bmf.ffmpeg_engine',
         'bmf.hml.hmp',
         'bmf.modules',
@@ -208,8 +209,13 @@ setup(
     ],
     ext_modules=[CMakeExtension("bmf")],
     cmdclass={"build_ext": CMakeBuild},
-    scripts=[
-        os.path.join(build_temp, "output", "bmf", "bin", "python_wrapper", "run_bmf_graph"),
-        os.path.join(build_temp, "output", "bmf", "bin", "python_wrapper", "trace_format_log"),
-    ],
+    entry_points={
+        'console_scripts': [
+           'run_bmf_graph = bmf.cmd.python_wrapper.wrapper:run_bmf_graph',
+           'trace_format_log = bmf.cmd.python_wrapper.wrapper:trace_format_log',
+           'module_manager = bmf.cmd.python_wrapper.wrapper:module_manager',
+           "bmf_cpp_adapt = bmf.cmd.python_wrapper.wrapper:cpp_adapt",
+           "bmf_cpp_restore = bmf.cmd.python_wrapper.wrapper:cpp_restore",
+        ],
+    }
 )
