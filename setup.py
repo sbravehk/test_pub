@@ -160,23 +160,24 @@ class CMakeBuild(build_ext):
         # a static config file. Obviously, setup.py is more convenient than pyproject.toml, so we manually copy
         # _bmf, _hmp, py_module_loader, go_module_loader and builtin_moduls before repair, instead of
         # the entire lib directory. the build directory is temporary, so we need to copy it here, instead of package_data.
-        src_dir = os.path.join(build_temp, "output", "bmf", "lib")
-        extensions_dst_dir = os.path.join(extdir, "bmf", "lib")
-        depends_dst_dir = os.path.join(extdir, package_name + ".libs") # command `auditwheel repair` store libraries into .libs
-        if not os.path.exists(extensions_dst_dir):
-            os.mkdir(extensions_dst_dir)
-        if not os.path.exists(depends_dst_dir):
-            os.mkdir(depends_dst_dir)
+        #src_dir = os.path.join(build_temp, "output", "bmf", "lib")
+        #extensions_dst_dir = os.path.join(extdir, "bmf", "lib")
+        #depends_dst_dir = os.path.join(extdir, package_name + ".libs") # command `auditwheel repair` store libraries into .libs
+        #if not os.path.exists(extensions_dst_dir):
+        #    os.mkdir(extensions_dst_dir)
+        #if not os.path.exists(depends_dst_dir):
+        #    os.mkdir(depends_dst_dir)
 
-        for lib in glob.glob(f"{src_dir}{os.sep}_*"):
-            shutil.copy(lib, extensions_dst_dir)
-        for file_glob in ["go_loader", "py_loader", "builtin_modules"]:
-            for lib in glob.glob(f"{src_dir}{os.sep}*{file_glob}*"):
-                shutil.copy(lib, depends_dst_dir)
-        for file in ["BUILTIN_CONFIG.json"]:
-           shutil.copyfile(os.path.join(src_dir, file), os.path.join(depends_dst_dir, file))
+        #for lib in glob.glob(f"{src_dir}{os.sep}_*"):
+        #    shutil.copy(lib, extensions_dst_dir)
+        #for file_glob in ["go_loader", "py_loader", "builtin_modules"]:
+        #    for lib in glob.glob(f"{src_dir}{os.sep}*{file_glob}*"):
+        #        shutil.copy(lib, depends_dst_dir)
+        #for file in ["BUILTIN_CONFIG.json"]:
+        #   shutil.copyfile(os.path.join(src_dir, file), os.path.join(depends_dst_dir, file))
 
         shutil.copytree(os.path.join(build_temp, "output", "bmf", "bin"), os.path.join(extdir, "bmf", "bin"))
+        shutil.copytree(os.path.join(build_temp, "output", "bmf", "lib"), os.path.join(extdir, "bmf", "lib"))
         shutil.copytree(os.path.join(build_temp, "output", "bmf", "include"), os.path.join(extdir, "bmf", "include"))
 
 
@@ -215,7 +216,7 @@ setup(
            'trace_format_log = bmf.cmd.python_wrapper.wrapper:trace_format_log',
            'module_manager = bmf.cmd.python_wrapper.wrapper:module_manager',
            "bmf_cpp_adapt = bmf.cmd.python_wrapper.wrapper:cpp_adapt",
-           "bmf_cpp_restore = bmf.cmd.python_wrapper.wrapper:cpp_restore",
+           #"bmf_cpp_restore = bmf.cmd.python_wrapper.wrapper:cpp_restore",
         ],
     }
 )

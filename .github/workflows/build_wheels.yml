@@ -81,17 +81,17 @@ jobs:
           if [ ! -d "bmf/hml/third_party/pybind11" ]; then (cd bmf/hml/third_party && tar xzvf third_party.tar.gz) fi &&
           if [ ${{ matrix.device }} == "gpu" ] && [ ${{ matrix.linux_arch }} == "x86_64" ]; then mv /opt/rh/devtoolset-10{,.bak} && yum -y install devtoolset-8-{gcc,gcc-c++} && export PATH=/opt/rh/devtoolset-8/root/usr/bin:${PATH}; fi &&
           (./scripts/build_ffmpeg.sh ${{ matrix.device }})
-        CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
-          auditwheel show {wheel} &&
-          echo "auditwheel show {wheel} done..." &&
-          tmp_dir=$(mktemp -d) &&
-          unzip -d ${tmp_dir} {wheel} &&
-          auditwheel -v repair $(ldd ${tmp_dir}/bmf/lib/* ${tmp_dir}/*.libs/* | awk '{if(NF>1){print $1}}' | grep "avdevice\|avfilter\|avformat\|avcodec\|postproc\|swresample\|swscale\|avutil\|cuda" | sort | uniq | awk '{printf(" --exclude %s", $1);}') -w {dest_dir} {wheel} &&
-          rm -rf ${tmp_dir}
+        CIBW_REPAIR_WHEEL_COMMAND_LINUX: "" #disable repair process
+                #  auditwheel show {wheel} &&
+                #  echo "auditwheel show {wheel} done..." &&
+                #  tmp_dir=$(mktemp -d) &&
+                #  unzip -d ${tmp_dir} {wheel} &&
+                #  auditwheel -v repair $(ldd ${tmp_dir}/bmf/lib/* ${tmp_dir}/*.libs/* | awk '{if(NF>1){print $1}}' | grep "avdevice\|avfilter\|avformat\|avcodec\|postproc\|swresample\|swscale\|avutil\|cuda" | sort | uniq | awk '{printf(" --exclude %s", $1);}') -w {dest_dir} {wheel} &&
+                #rm -rf ${tmp_dir}
 
     - uses: actions/upload-artifact@v3
       with:
-        path: ./wheelhouse/*.whl
+        path: ./dist/*.whl
 
 
   upload_all_to_pypi:
