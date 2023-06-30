@@ -3,7 +3,10 @@
 set -exuo pipefail
 
 OS=$(uname)
-. /etc/os-release
+if [ ${OS} == "Linux" ]
+then
+    . /etc/os-release
+fi
 
 if [ $# -eq 0 ]
 then
